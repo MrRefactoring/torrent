@@ -1,10 +1,10 @@
-var torrents = require('torrent-stream')
+const torrents = require('torrent-stream')
 
-module.exports = function (source, opts) {
-  var engine = torrents(source, opts)
+module.exports = (source, opts) => {
+  const engine = torrents(source, opts)
 
-  engine.on('ready', function () {
-    engine.files.forEach(function (file) {
+  engine.on('ready', () => {
+    engine.files.forEach((file) => {
       file.select()
     })
   })

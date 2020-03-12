@@ -1,19 +1,20 @@
 #!/usr/bin/env node
 
-var minimist = require('minimist')
-var fs = require('fs')
-var log = require('single-line-log').stdout
-var bytes = require('pretty-bytes')
+const minimist = require('minimist')
+const fs = require('fs')
+const path = require('path')
+let logger = require('single-line-log').stdout
+const bytes = require('pretty-bytes')
 
-var pkg = require('./package.json')
-var torrent = require('./')
-var createTorrent = require('create-torrent')
-var parseTorrent = require('parse-torrent')
-var concat = require('concat-stream')
-var humanSize = require('human-format')
-var prettySeconds = require('pretty-seconds')
+const pkg = require('./package.json')
+const torrent = require('./')
+const createTorrent = require('create-torrent')
+const parseTorrent = require('parse-torrent')
+const concat = require('concat-stream')
+const humanSize = require('human-format')
+const prettySeconds = require('pretty-seconds')
 
-var argv = minimist(process.argv.slice(2), {
+const argv = minimist(process.argv.slice(2), {
   alias: { outfile: 'o' }
 })
 
@@ -23,17 +24,17 @@ if (argv.version) {
 }
 
 if (argv.help || argv._.length === 0) {
-  console.log(fs.readFileSync(__dirname + '/usage.txt', 'utf-8'))
+  console.log(fs.readFileSync(path.resolve(__dirname, '/usage.txt'), 'utf-8'))
   process.exit(0)
 }
 
-if (argv.quiet) log = function () {}
+if (argv.quiet) logger = function () { }
 
-var source = argv._.shift()
-var infile
+const source = argv._.shift()
+let infile
 if (source === 'create') {
-  var dir = argv._.shift()
-  var outfile = argv.outfile
+  const dir = argv._.shift()
+  let outfile = argv.outfile
   if (outfile === '-') outfile = null
 
   if (outfile && fs.existsSync(outfile)) {
@@ -41,7 +42,7 @@ if (source === 'create') {
     process.exit(1)
   }
 
-  var opts = {}
+  const opts = {}
   if (argv.tracker) {
     if (typeof argv.tracker === 'string') opts.announceList = [[argv.tracker]]
     else opts.announceList = argv.tracker.map(function (t) { return [t] })
@@ -81,15 +82,14 @@ if (source === 'create') {
           acc[key] = toString(obj[key])
           return acc
         }, {})
-      }
-      else return obj
+      } else return obj
     }
   })
 } else if (source === 'ls' || source === 'list') {
   infile = argv._.shift()
   getInfo(infile, function (parsed) {
     parsed.files.forEach(function (file) {
-      var prefix = ''
+      let prefix = ''
       if (argv.s && argv.h) {
         prefix = humanSize(file.length).replace(/(\d)B$/, '$1 B')
         prefix = Array(10 - prefix.length).join(' ') + prefix + ' '
@@ -102,12 +102,12 @@ if (source === 'create') {
   })
 } else if (source === 'seed') {
   infile = argv._.shift()
-  var filename = infile
+  const filename = infile
   if (!argv.path) argv.path = process.cwd()
   getSource(infile, function (body) {
-    var dl = torrent(body, argv)
+    const dl = torrent(body, argv)
     dl.on('ready', function () {
-      var seeding = dl.torrent.pieces.every(function (piece, i) {
+      const seeding = dl.torrent.pieces.every(function (piece, i) {
         return dl.bitfield.get(i)
       })
       if (!seeding) {
@@ -117,7 +117,7 @@ if (source === 'create') {
         console.log('Verified files successfully!')
       }
       function status () {
-        log(
+        logger(
           'Seeding ' + filename + '\n' +
           'Connected to ' + dl.swarm.wires.reduce(notChoked, 0) + '/' + dl.swarm.wires.length + ' peers\n' +
           'Uploaded ' + bytes(dl.swarm.uploaded) + ' (' + bytes(dl.swarm.uploadSpeed()) + ')\n'
@@ -132,7 +132,7 @@ if (source === 'create') {
   if (!argv.path) argv.path = process.cwd()
 
   getSource(source, function (body) {
-    var dl = torrent(body, argv)
+    const dl = torrent(body, argv)
 
     dl.on('ready', function () {
       if (argv.peer) {
@@ -140,29 +140,31 @@ if (source === 'create') {
         dl.connect(argv.peer)
       }
 
-      var fileCount = dl.files.length
-      var timeStart = (new Date()).getTime()
+      const fileCount = dl.files.length
+      const timeStart = (new Date()).getTime()
       console.log(fileCount.toString(), (fileCount === 1 ? 'file' : 'files'), 'in torrent')
       console.log(dl.files.map(function (f) { return f.name.trim() }).join('\n'))
 
-      var status = function () {
-        var down = bytes(dl.swarm.downloaded)
-        var downSpeed = bytes(dl.swarm.downloadSpeed()) + '/s'
-        var up = bytes(dl.swarm.uploaded)
-        var upSpeed = bytes(dl.swarm.uploadSpeed()) + '/s'
-        var torrentSize = dl.torrent.length
-        var bytesRemaining = torrentSize - dl.swarm.downloaded
-        var percentage = ((dl.swarm.downloaded / dl.torrent.length) * 100).toPrecision(4)
-        var progressBar = ''
-        var bars = ~~((percentage) / 5)
+      const status = function () {
+        const down = bytes(dl.swarm.downloaded)
+        const downSpeed = bytes(dl.swarm.downloadSpeed()) + '/s'
+        const up = bytes(dl.swarm.uploaded)
+        const upSpeed = bytes(dl.swarm.uploadSpeed()) + '/s'
+        const torrentSize = dl.torrent.length
+        const bytesRemaining = torrentSize - dl.swarm.downloaded
+        let percentage = ((dl.swarm.downloaded / dl.torrent.length) * 100).toPrecision(4)
+        let progressBar = ''
+        const bars = ~~((percentage) / 5)
+
+        let timeRemaining
 
         // (TimeTaken / bytesDownloaded) * bytesLeft=timeLeft
         if (dl.swarm.downloaded > 0) {
           if (dl.swarm.downloadSpeed() > 0) {
-            var seconds = 1000
-            var timeNow = (new Date()).getTime()
-            var timeElapsed = timeNow - timeStart
-            var timeRemaining = (((timeElapsed / dl.swarm.downloaded) * bytesRemaining) / seconds).toPrecision(6)
+            const seconds = 1000
+            const timeNow = (new Date()).getTime()
+            const timeElapsed = timeNow - timeStart
+            timeRemaining = (((timeElapsed / dl.swarm.downloaded) * bytesRemaining) / seconds).toPrecision(6)
             timeRemaining = 'Estimated ' + prettySeconds(~~timeRemaining) + ' remaining'
           } else {
             timeRemaining = 'Unknown time remaining'
@@ -173,13 +175,13 @@ if (source === 'create') {
 
         if (percentage > 100) { percentage = 100 }
 
-        for (var i = 0; i < bars; i++) {
+        for (let i = 0; i < bars; i++) {
           progressBar = progressBar + '='
         }
 
         progressBar = progressBar + Array(20 + 1 - progressBar.length).join(' ')
 
-        log(
+        logger(
           'Connected to ' + dl.swarm.wires.reduce(notChoked, 0) + '/' + dl.swarm.wires.length + ' peers\n' +
           'Downloaded ' + down + ' (' + downSpeed + ')\n' +
           'Uploaded ' + up + ' (' + upSpeed + ')\n' +
@@ -202,7 +204,7 @@ function notChoked (result, wire) {
 
 function getSource (infile, cb) {
   if (/^magnet:/.test(infile)) return cb(infile)
-  var instream = !infile || infile === '-'
+  const instream = !infile || infile === '-'
     ? process.stdin
     : fs.createReadStream(infile)
   instream.pipe(concat(cb))
@@ -210,8 +212,10 @@ function getSource (infile, cb) {
 
 function getInfo (infile, cb) {
   getSource(infile, function (body) {
+    let parsed
+
     try {
-      var parsed = parseTorrent(body)
+      parsed = parseTorrent(body)
     } catch (err) {
       console.error(err.stack)
       process.exit(1)
